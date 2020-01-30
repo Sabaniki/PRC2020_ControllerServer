@@ -4,28 +4,75 @@ import (
 	"fmt"
 	"github.com/nobonobo/joycon"
 	"log"
+	"math"
+	"net"
+	"strconv"
 )
+
+func adjustment(n float32) float32 {
+	if math.Abs(float64(n)) < 0.2 {
+		return 0
+	} else {
+		return n
+	}
+}
+
+func makeLpower(x float32, y float32) float32 {
+	return 100 * (y + x)
+}
+
+func makeRpower(x float32, y float32) float32 {
+	return 100 * (y - x)
+}
+
+func makeArduinoCommand(Lpower float32, Rpower float32, command string) string {
+	return "L:" + strconv.Itoa(int(Lpower)) + ",R:" + strconv.Itoa(int(Rpower)) + ",E:" + command
+}
 
 func main() {
 	devices, err := joycon.Search()
+	toRasp, _ := net.Dial("udp", "192.168.100.10:2222")
+	toMac, _ := net.Dial("udp", "localhost:3333")
+	defer toRasp.Close()
+	defer toMac.Close()
 	if err != nil {
 		log.Fatalln(err)
 	}
 	if len(devices) == 0 {
 		log.Fatalln("joycon not found")
 	}
-	jc, err := joycon.NewJoycon(devices[0].Path, false)
+	jcR, err := joycon.NewJoycon(devices[0].Path, false)
+	jcL, err := joycon.NewJoycon(devices[1].Path, false)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	for true {
-		s := <-jc.State()
-		fmt.Printf("%#v\n", s.Buttons)  // Button bits
-		fmt.Printf("%#v\n", s.RightAdj) // Right Analog Stick State
+		var command string
+		stateR := <-jcR.State()
+		stateL := <-jcL.State()
+		x := adjustment(stateR.RightAdj.X)
+		y := adjustment(stateL.LeftAdj.Y)
+		if y < 0 {
+			x *= -1
+		}
+		//fmt.Printf("L: %#v, ", 100*(y+x))
+		//fmt.Printf("R: %#v\n", 100*(y-x))
+		//fmt.Printf("L_Button: %#v\n", stateL.Buttons) // Button bits
+		//fmt.Printf("R_Button: %#v\n", stateR.Buttons) // Button bits
+		if stateR.Buttons == 0x08 {
+			//fmt.Print("wh")
+			_, _ = toMac.Write([]byte("wh"))
+		} else if stateR.Buttons == 0x01 {
+			// toRasp
+			command = "pm"
+		}
+		if stateL.Buttons == 0x80000 {
+			// toRasp
+			command = "dc"
+		}
+		//_, _ = toRasp.Write([]byte(makeArduinoCommand(makeLpower(x,y), makeRpower(x,y), command)))
+		fmt.Print(makeArduinoCommand(makeLpower(x, y), makeRpower(x, y), command))
 	}
-	//a := <-jc.Sensor()
-	//fmt.Printf("%#v\n", a.Accel) // Acceleration Sensor State
-	//fmt.Printf("%#v\n", a.Gyro)  // Gyro Sensor State
-
-	jc.Close()
+	jcR.Close()
+	jcL.Close()
 }
