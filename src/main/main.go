@@ -71,7 +71,9 @@ func main() {
 			command = "dc"
 		}
 		//_, _ = toRasp.Write([]byte(makeArduinoCommand(makeLpower(x,y), makeRpower(x,y), command)))
-		fmt.Print(makeArduinoCommand(makeLpower(x, y), makeRpower(x, y), command))
+		command =makeArduinoCommand(makeLpower(x, y), makeRpower(x, y), command)
+		fmt.Print(command)
+		_, _  = toRasp.Write([]byte(command))
 	}
 	jcR.Close()
 	jcL.Close()
