@@ -31,7 +31,7 @@ func makeArduinoCommand(Lpower float32, Rpower float32, command string) string {
 
 func main() {
 	devices, err := joycon.Search()
-	toRasp, _ := net.Dial("udp", "192.168.100.10:2222")
+	toRasp, _ := net.Dial("udp", "192.168.100.10:2222")// for saito → "192.168.100.46:2222
 	toMac, _ := net.Dial("udp", "localhost:3333")
 	defer toRasp.Close()
 	defer toMac.Close()
@@ -65,14 +65,17 @@ func main() {
 		} else if stateR.Buttons == 0x01 {
 			// toRasp
 			command = "pm"
-		}
-		if stateL.Buttons == 0x80000 {
+		} else if stateR.Buttons == 0x80 {
 			// toRasp
 			command = "dc"
 		}
+		if stateL.Buttons == 0x800000 {
+			// toRasp
+			command = "le"
+		}
 		//_, _ = toRasp.Write([]byte(makeArduinoCommand(makeLpower(x,y), makeRpower(x,y), command)))
 		command =makeArduinoCommand(makeLpower(x, y), makeRpower(x, y), command)
-		fmt.Print(command)
+		fmt.Print(command + "\n")
 		_, _  = toRasp.Write([]byte(command))
 	}
 	jcR.Close()
